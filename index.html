@@ -7,20 +7,22 @@
 <style>
     *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;}
     body{background:linear-gradient(135deg,#0A1A2F,#FF8C00);min-height:100vh;padding:20px;color:#fff;}
-   .container{max-width:800px;margin:auto;background:white;color:#333;border-radius:20px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,0.2);}
-   .header{text-align:center;margin-bottom:20px;}
-   .header h1{color:#0A1A2F;font-size:24px;}
-   .header p{color:#666;}
-   .chat-box{height:400px;overflow-y:auto;border:2px solid #FF8C00;border-radius:12px;padding:15px;background:#f9f9f9;margin-bottom:15px;}
-   .msg{margin:10px 0;padding:12px;border-radius:10px;max-width:80%;}
-   .user-msg{background:#FF8C00;color:white;margin-left:auto;text-align:right;}
-   .ai-msg{background:#e3f2fd;color:#0A1A2F;}
-   .input-area{display:flex;gap:10px;}
-   .input-area input{flex:1;padding:14px;border:2px solid #ddd;border-radius:10px;font-size:15px;}
-   .btn{padding:14px 20px;background:#FF8C00;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;}
-   .btn:hover{background:#e67e00;}
-   .lesson-box{background:#fff3e0;padding:15px;border-radius:12px;margin:15px 0;border-left:4px solid #FF8C00;}
-   .speak-btn{background:#25D366;font-size:12px;padding:6px 10px;margin-left:10px;}
+    .container{max-width:800px;margin:auto;background:white;color:#333;border-radius:20px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,0.2);}
+    .header{text-align:center;margin-bottom:20px;}
+    .header h1{color:#0A1A2F;font-size:24px;}
+    .header p{color:#666;}
+    .chat-box{height:400px;overflow-y:auto;border:2px solid #FF8C00;border-radius:12px;padding:15px;background:#f9f9f9;margin-bottom:15px;}
+    .msg{margin:10px 0;padding:12px;border-radius:10px;max-width:80%;line-height:1.6;}
+    .user-msg{background:#FF8C00;color:white;margin-left:auto;text-align:right;}
+    .ai-msg{background:#e3f2fd;color:#0A1A2F;}
+    .input-area{display:flex;gap:10px;}
+    .input-area input{flex:1;padding:14px;border:2px solid #ddd;border-radius:10px;font-size:15px;}
+    .btn{padding:14px 20px;background:#FF8C00;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;}
+    .btn:hover{background:#e67e00;}
+    .btn:disabled{opacity:0.6;cursor:not-allowed;}
+    .lesson-box{background:#fff3e0;padding:15px;border-radius:12px;margin:15px 0;border-left:4px solid #FF8C00;color:#333;}
+    .speak-btn{background:#25D366;font-size:12px;padding:6px 10px;margin-left:10px;border:none;border-radius:6px;color:white;cursor:pointer;}
+    .footer{text-align:center;margin-top:15px;font-size:12px;color:#666;}
 </style>
 </head>
 <body>
@@ -33,7 +35,8 @@
     <div class="lesson-box">
         <b>Today's Lesson:</b> Greetings <br>
         <b>Hello</b> = Avuxeni <button class="speak-btn" onclick="speak('Avuxeni')">🔊</button><br>
-        <b>How are you?</b> = U njhani? <button class="speak-btn" onclick="speak('U njhani?')">🔊</button>
+        <b>How are you?</b> = U njhani? <button class="speak-btn" onclick="speak('U njhani?')">🔊</button><br>
+        <b>Thank you</b> = Ndzi khense <button class="speak-btn" onclick="speak('Ndzi khense')">🔊</button>
     </div>
 
     <div class="chat-box" id="chatBox">
@@ -42,8 +45,10 @@
 
     <div class="input-area">
         <input type="text" id="userInput" placeholder="Type in English: e.g 'How to say thank you'">
-        <button class="btn" onclick="sendMessage()">Send</button>
+        <button class="btn" id="sendBtn" onclick="sendMessage()">Send</button>
     </div>
+    
+    <div class="footer">Powered by Firebase + Gemini AI</div>
 </div>
 
 <script type="module">
@@ -66,10 +71,10 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
-// IMPORTANT: Get your FREE Gemini API key from https://aistudio.google.com/app/apikey
-const GEMINI_API_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE";
-
+// THIS IS YOUR LIVE CLOUD FUNCTION URL
+const API_URL = "const API_URL = "https://translatetext-edgcaiuzba-uc.a.run.app";
 const chatBox = document.getElementById('chatBox');
+const sendBtn = document.getElementById('sendBtn');
 
 window.sendMessage = async () => {
     const input = document.getElementById('userInput');
@@ -78,6 +83,7 @@ window.sendMessage = async () => {
 
     addMessage(question, 'user-msg');
     input.value = '';
+    sendBtn.disabled = true;
     addMessage('Ndzi nga ku pfuna... Thinking 🤔', 'ai-msg');
 
     // Save to Firebase for progress tracking
@@ -87,32 +93,22 @@ window.sendMessage = async () => {
     });
 
     try {
-        const prompt = `You are a Tsonga language teacher. The user is a beginner who wants to learn Xitsonga.
-        User asked: "${question}"
-        Respond with:
-        1. Tsonga Translation
-        2. English Explanation
-        3. Example sentence in Tsonga with English translation
-        4. Pronunciation tip
-        Keep it friendly and short.`;
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const res = await fetch(API_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                contents: [{parts: [{text: prompt}]}]
-            })
+            body: JSON.stringify({question: question})
         });
         const data = await res.json();
-        const aiText = data.candidates[0].content.parts[0].text;
 
-        // Remove "thinking" message and add real answer
         chatBox.lastChild.remove();
-        addMessage(aiText, 'ai-msg');
+        addMessage(data.answer || data.error, 'ai-msg');
 
     } catch(err) {
         chatBox.lastChild.remove();
-        addMessage("Error: " + err.message + ". Did you add your Gemini API key?", 'ai-msg');
+        addMessage("Sorry, there was an error. Please try again.", 'ai-msg');
+        console.error(err);
+    } finally {
+        sendBtn.disabled = false;
     }
 }
 
