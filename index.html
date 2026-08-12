@@ -17,12 +17,19 @@
     .ai-msg{background:#e3f2fd;color:#0A1A2F;}
     .input-area{display:flex;gap:10px;}
     .input-area input{flex:1;padding:14px;border:2px solid #ddd;border-radius:10px;font-size:15px;}
+    .input-area input:focus{outline:none;border-color:#FF8C00;}
     .btn{padding:14px 20px;background:#FF8C00;color:white;border:none;border-radius:10px;font-weight:bold;cursor:pointer;}
     .btn:hover{background:#e67e00;}
     .btn:disabled{opacity:0.6;cursor:not-allowed;}
     .lesson-box{background:#fff3e0;padding:15px;border-radius:12px;margin:15px 0;border-left:4px solid #FF8C00;color:#333;}
     .speak-btn{background:#25D366;font-size:12px;padding:6px 10px;margin-left:10px;border:none;border-radius:6px;color:white;cursor:pointer;}
+    .speak-btn:hover{background:#1ebe5c;}
     .footer{text-align:center;margin-top:15px;font-size:12px;color:#666;}
+    .typing{display:flex;gap:4px;}
+    .dot{width:8px;height:8px;background:#FF8C00;border-radius:50%;animation:blink 1.4s infinite;}
+    .dot:nth-child(2){animation-delay:0.2s;}
+    .dot:nth-child(3){animation-delay:0.4s;}
+    @keyframes blink{0%,60%,100%{opacity:0.3}30%{opacity:1}}
 </style>
 </head>
 <body>
@@ -71,8 +78,8 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
-// THIS IS YOUR LIVE CLOUD FUNCTION URL
-const API_URL = "const API_URL = "https://translatetext-edgcaiuzba-uc.a.run.app";
+// FIXED: Removed duplicate const
+const API_URL = "https://translatetext-edgcaiuzba-uc.a.run.app";
 const chatBox = document.getElementById('chatBox');
 const sendBtn = document.getElementById('sendBtn');
 
@@ -84,7 +91,7 @@ window.sendMessage = async () => {
     addMessage(question, 'user-msg');
     input.value = '';
     sendBtn.disabled = true;
-    addMessage('Ndzi nga ku pfuna... Thinking 🤔', 'ai-msg');
+    showTyping();
 
     // Save to Firebase for progress tracking
     push(ref(db, 'learning-log'), {
@@ -98,14 +105,16 @@ window.sendMessage = async () => {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({question: question})
         });
+        
+        if(!res.ok) throw new Error("Server error: " + res.status);
+        
         const data = await res.json();
-
-        chatBox.lastChild.remove();
+        removeTyping();
         addMessage(data.answer || data.error, 'ai-msg');
 
     } catch(err) {
-        chatBox.lastChild.remove();
-        addMessage("Sorry, there was an error. Please try again.", 'ai-msg');
+        removeTyping();
+        addMessage("⚠️ Sorry, I couldn't connect. Check your internet and try again.", 'ai-msg');
         console.error(err);
     } finally {
         sendBtn.disabled = false;
@@ -120,13 +129,26 @@ function addMessage(text, className) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+function showTyping(){
+    const div = document.createElement('div');
+    div.id = 'typing';
+    div.className = 'msg ai-msg';
+    div.innerHTML = '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function removeTyping(){
+    const typing = document.getElementById('typing');
+    if(typing) typing.remove();
+}
+
 window.speak = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-ZA'; // Closest available. Real Tsonga voice coming soon
+    utterance.lang = 'en-ZA';
     speechSynthesis.speak(utterance);
 }
 
-// Enter key to send
 document.getElementById('userInput').addEventListener('keypress', (e) => {
     if(e.key === 'Enter') sendMessage();
 });
